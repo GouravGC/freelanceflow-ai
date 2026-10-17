@@ -21,7 +21,7 @@ def generate_text(system_prompt: str, user_prompt: str) -> str:
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ],
-        max_tokens=700,
+        max_tokens=100,
         temperature=0.2,
     )
 

@@ -9,7 +9,18 @@ st.set_page_config(page_title="FreelanceFlow AI", page_icon="💼", layout="wide
 st.title("💼 FreelanceFlow AI")
 st.caption("AI-powered freelance proposal copilot")
 
+provider_options = {
+    "OpenRouter (Cloud)": "openrouter",
+    "Google Gemma (Local via Ollama)": "ollama",
+}
+
 with st.form("proposal_form"):
+    provider_label = st.radio(
+        "Choose inference provider",
+        options=list(provider_options.keys()),
+        horizontal=True,
+    )
+
     client = st.text_input("Client name")
     brief = st.text_area("Project brief", height=180)
     col1, col2 = st.columns(2)
@@ -33,10 +44,12 @@ if submitted:
                 estimated_hours=hours,
             )
 
-            with st.spinner("Generating proposal..."):
-                proposal = create_proposal(request)
+            selected_provider = provider_options[provider_label]
 
-            st.success("Proposal generated!")
+            with st.spinner(f"Generating proposal using {provider_label}..."):
+                proposal = create_proposal(request, provider=selected_provider)
+
+            st.success(f"Proposal generated using {provider_label}!")
             st.subheader(proposal.title)
             st.write(proposal.summary)
             st.metric("Estimated cost", f"${proposal.estimated_cost:,.2f}")
