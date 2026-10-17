@@ -1,0 +1,10 @@
+# FreelanceFlow AI - Runtime Dependencies
+# Target Python: 3.11.10
+
+streamlit==1.50.0
+openai==2.6.1
+pydantic==2.12.3
+python-dotenv==1.1.1
+requests==2.32.5
+tenacity==9.1.2
+pytest==8.4.2
