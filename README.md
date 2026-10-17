@@ -2,6 +2,16 @@
 
 **An AI-powered freelance proposal copilot** that transforms client project briefs into structured proposals with pricing, requirements, assumptions, deliverables, milestones, risks, and a client-ready email.
 
+## 🎥 Project Demo
+
+Watch the FreelanceFlow AI walkthrough on YouTube:
+
+[![FreelanceFlow AI Demo](https://img.youtube.com/vi/0vEj6Pujp5Y/maxresdefault.jpg)](https://www.youtube.com/watch?v=0vEj6Pujp5Y)
+
+▶️ **[Watch the full demo on YouTube](https://www.youtube.com/watch?v=0vEj6Pujp5Y)**
+
+🌐 **[Try the live application](https://freelanceflow-ai-2du9.onrender.com/)**
+
 ## 🔎 Project Evidence
 
 **[📸 View All Project Evidence](https://github.com/GouravGC/freelanceflow-ai/tree/main/evidences)**
