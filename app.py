@@ -4,6 +4,21 @@ import streamlit as st
 from freelanceflow.core.schemas import ProposalRequest
 from freelanceflow.services.proposal_service import create_proposal
 
+import os
+import sentry_sdk
+from dotenv import load_dotenv
+
+load_dotenv()
+
+sentry_dsn = os.getenv("SENTRY_DSN")
+
+if sentry_dsn:
+    sentry_sdk.init(
+        dsn=sentry_dsn,
+        environment=os.getenv("APP_ENV", "development"),
+        send_default_pii=False,
+    )
+
 st.set_page_config(page_title="FreelanceFlow AI", page_icon="💼", layout="wide")
 
 st.title("💼 FreelanceFlow AI")
