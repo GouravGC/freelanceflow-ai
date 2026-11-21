@@ -47,14 +47,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set lowercase image name
+      - name: Set Image Name
         run: |
           echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GitHub Container Registry
+      - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -80,34 +80,70 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Validate Render Deploy Hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          python - <<'PY'
+          import os
+          from urllib.parse import urlparse
+
+          url = os.environ.get("RENDER_DEPLOY_HOOK_URL", "").strip()
+
+          if not url:
+              raise SystemExit(
+                  "ERROR: RENDER_DEPLOY_HOOK_URL is missing from GitHub Repository Secrets."
+              )
+
+          parsed = urlparse(url)
+
+          print("Deploy hook hostname:", parsed.hostname or "INVALID")
+
+          if parsed.scheme != "https":
+              raise SystemExit("ERROR: Deploy hook must use HTTPS.")
+
+          if parsed.hostname != "api.render.com":
+              raise SystemExit(
+                  "ERROR: This is not a Render deploy hook URL. "
+                  "Open Render Dashboard > Your Service > Settings > Deploy Hook "
+                  "and update the GitHub Repository Secret."
+              )
+
+          if not parsed.path.startswith("/deploy/") or not parsed.query:
+              raise SystemExit(
+                  "ERROR: Deploy hook URL format is invalid. "
+                  "Copy the complete URL from Render."
+              )
+
+          print("Render deploy hook format validated.")
+
+          with open(os.environ["GITHUB_ENV"], "a") as env_file:
+              env_file.write("VALIDATED_RENDER_HOOK=" + url + "\n")
+          PY
+
       - name: Trigger Render Deployment
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-
         run: |
-          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
-            echo "ERROR: RENDER_DEPLOY_HOOK_URL secret is missing."
-            exit 1
-          fi
-
           echo "Triggering Render deployment..."
-          echo "Render will pull the latest image configured in its service settings."
+          echo "Render will pull the image tag configured in its service settings."
 
           HTTP_STATUS=$(curl \
             --silent \
             --show-error \
             --output /tmp/render-response.txt \
             --write-out "%{http_code}" \
-            --request POST \
+            --request GET \
             "$RENDER_DEPLOY_HOOK_URL")
 
           echo "Render HTTP status: $HTTP_STATUS"
 
           if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "202" ]; then
-            echo "ERROR: Render rejected the deployment request."
-            echo "Response:"
+            echo "ERROR: Render did not accept the deployment request."
+            echo "Response body:"
             cat /tmp/render-response.txt
             exit 1
           fi
 
           echo "SUCCESS: Render accepted the deployment request."
+          cat /tmp/render-response.txt
