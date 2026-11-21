@@ -13,7 +13,7 @@ permissions:
 
 jobs:
   test:
-    name: Run Tests
+    name: Run Python Tests
     runs-on: ubuntu-latest
 
     steps:
@@ -24,7 +24,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: "pip"
+          cache: pip
 
       - name: Install dependencies
         run: |
@@ -32,17 +32,15 @@ jobs:
           pip install -r requirements.txt
           pip install pytest
 
-      - name: Run tests
+      - name: Run Tests
         env:
           PYTHONPATH: src
         run: python -m pytest tests -v
 
   docker-publish:
-    name: Build & Publish Docker Image to GHCR
+    name: Build and Push Docker Image to GHCR
     needs: test
-
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     runs-on: ubuntu-latest
 
     steps:
@@ -56,17 +54,18 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry
+      - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push Docker image
+      - name: Build and Push Docker Image
         uses: docker/build-push-action@v6
         with:
           context: .
+          platforms: linux/amd64
           push: true
           tags: |
             ${{ env.IMAGE_NAME }}:latest
@@ -75,19 +74,15 @@ jobs:
           cache-to: type=gha,mode=max
 
   render-deploy:
-    name: Deploy Latest Image to Render
+    name: Deploy Latest GHCR Image to Render
     needs: docker-publish
-
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-
     runs-on: ubuntu-latest
 
     steps:
       - name: Trigger Render Deployment
         env:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-          IMAGE_NAME: ghcr.io/${{ github.repository }}
-          IMAGE_TAG: ${{ github.sha }}
 
         run: |
           if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
@@ -95,28 +90,24 @@ jobs:
             exit 1
           fi
 
-          # Encode the exact GHCR image URL for Render.
-          IMAGE_URL="${IMAGE_NAME,,}:${IMAGE_TAG}"
-          ENCODED_IMAGE_URL=$(python -c "import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1], safe=''))" "$IMAGE_URL")
-
           echo "Triggering Render deployment..."
-          echo "Image: ${IMAGE_NAME,,}:${IMAGE_TAG}"
+          echo "Render will pull the latest image configured in its service settings."
 
-          # Render deploy hooks already contain a query parameter (key).
-          # Append imgURL so Render pulls this exact image from GHCR.
           HTTP_STATUS=$(curl \
             --silent \
             --show-error \
-            --output /tmp/render-response.json \
+            --output /tmp/render-response.txt \
             --write-out "%{http_code}" \
             --request POST \
-            "${RENDER_DEPLOY_HOOK_URL}&imgURL=${ENCODED_IMAGE_URL}")
+            "$RENDER_DEPLOY_HOOK_URL")
 
           echo "Render HTTP status: $HTTP_STATUS"
 
           if [ "$HTTP_STATUS" != "200" ] && [ "$HTTP_STATUS" != "202" ]; then
-            echo "ERROR: Render deployment request failed."
+            echo "ERROR: Render rejected the deployment request."
+            echo "Response:"
+            cat /tmp/render-response.txt
             exit 1
           fi
 
-          echo "Render accepted the deployment request."
+          echo "SUCCESS: Render accepted the deployment request."
